@@ -17,10 +17,10 @@ pub fn main() anyerror!void {
     var content = try std.fs.cwd().readFileAlloc(allocator, file_name, 4098);
     defer allocator.free(content);
 
-    const allo: *std.mem.Allocator = &allocator;
-    var string = String.init(allo);
+    var string = String.init(&allocator);
     //const string = util.StrFromU8(content, @as(*@TypeOf(allocator), &allocator));
-    _ = try parse.parse_expr(&string, allocator);
+    const ast = try parse.parse_expr(&string, allocator);
+    defer ast.deinit(allocator);
     std.log.info("The filename is {s}", .{file_name});
 }
 

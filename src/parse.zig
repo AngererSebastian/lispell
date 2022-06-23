@@ -14,17 +14,19 @@ const AstExpr = union(enum) {
 
     pub fn deinit(self: AstExpr, allocator: Allocator) void {
         switch (self) {
-            .string => |*s| allocator.free(s),
-            .ident => |*i| allocator.free(i),
-            .call => |*c| {
-                for (c) |n| {
-                    n.deinit(allocator);
+            .number => {},
+            .string => |s| allocator.free(s),
+            .ident => |i| allocator.free(i),
+            .call => |c| {
+                var i: u32 = 0;
+                while (i <= c.items.len) : (i += 1) {
+                    c.items[i].deinit(allocator);
                 }
-                allocator.free(c);
+                c.deinit();
             },
-            .quoted => |*c| {
-                for (c) |n| {
-                    n.deinit(allocator);
+            .quoted => |c| {
+                for (c) |e| {
+                    e.deinit(allocator);
                 }
                 allocator.free(c);
             },

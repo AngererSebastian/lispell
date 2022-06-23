@@ -5,7 +5,7 @@ const String = @import("./deps/zig-string/zig-string.zig").String;
 const Allocator = std.mem.Allocator;
 const Vec = std.ArrayList;
 
-const AstExpr = union(enum) {
+pub const AstExpr = union(enum) {
     number: f64,
     string: []u8,
     ident: []u8,

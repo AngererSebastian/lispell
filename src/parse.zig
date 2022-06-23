@@ -1,6 +1,6 @@
 const std = @import("std");
 const util = @import("./util.zig");
-const String = @import("../deps/zig-string/zig-string.zig").String;
+const String = @import("./deps/zig-string/zig-string.zig").String;
 
 const Allocator = std.mem.Allocator;
 const Vec = std.ArrayList;
@@ -36,50 +36,50 @@ const ParseError = error {
     Empty,
     MissingClosingParan,
     UnclosedString,
-};
+} || String.Error;
 
-pub fn parse_expr(inp: String, allocator: Allocator) ParseError!AstExpr {
+pub fn parse_expr(inp: *String, allocator: Allocator) ParseError!AstExpr {
     inp.trim(" ");
 
     if (inp.isEmpty()) {
         return ParseError.Empty;
     }
 
-    const str = inp.str();
+    var str = inp.buffer orelse return ParseError.Empty;
     const len = str.len;
 
     // parse a call expression
     if (str[0] == '(') {
         return if (str[len - 1] == ')') {
-            const sub = str[1..len-1];
+            var sub = str[1..len-1];
             const subStr = util.StrFromU8(sub, inp.allocator);
-            parseCall(subStr);
+            return try parseCall(subStr, allocator);
         }
         else ParseError.MissingClosingParan;
     }
 
     if(str[0] == '"') {
-        const sub = str[1..];
+        var sub = str[1..];
         const subStr = util.StrFromU8(sub, inp.allocator);
-        const end = subStr.find([]u8{'"'}) orelse return ParseError.UnclosedString;
+        const end = subStr.find(&[_]u8{'"'}) orelse return ParseError.UnclosedString;
 
         return AstExpr { .string = str[1..end + 1]};
     }
 
     if (std.fmt.parseFloat(f64, str)) |f| {
         return AstExpr { .number = f };
+    } else |_| {
+        return AstExpr { .ident = str };
     }
-
-
 }
 
 fn parseCall(inp: String, allocator: Allocator) ParseError!AstExpr {
-    var block = 0;
+    var block: u64 = 0;
     var vec = Vec(AstExpr).init(allocator);
 
-    while (inp.splitToString(" ", block)) |e| {
-        const expr = parse_expr(e, allocator);
-        vec.insert(expr);
+    while (try inp.splitToString(" ", block)) |*e| {
+        const expr = try parse_expr(e, allocator);
+        try vec.append(expr);
         block += 1;
     }
 

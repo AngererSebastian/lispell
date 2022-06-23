@@ -1,7 +1,8 @@
 const std = @import("std");
 const parse = @import("./parse.zig");
-const String = @import("../deps/zig-string/zig-string.zig").String;
-const allocator = std.heap.page_allocator; 
+const util = @import("./util.zig");
+const String = @import("./deps/zig-string/zig-string.zig").String;
+var allocator = std.heap.page_allocator; 
 
 pub fn main() anyerror!void {
     var args = std.process.args();
@@ -13,6 +14,13 @@ pub fn main() anyerror!void {
     }; 
     defer allocator.free(file_name);
 
+    var content = try std.fs.cwd().readFileAlloc(allocator, file_name, 4098);
+    defer allocator.free(content);
+
+    const allo: *std.mem.Allocator = &allocator;
+    var string = String.init(allo);
+    //const string = util.StrFromU8(content, @as(*@TypeOf(allocator), &allocator));
+    _ = try parse.parse_expr(&string, allocator);
     std.log.info("The filename is {s}", .{file_name});
 }
 

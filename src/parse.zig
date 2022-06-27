@@ -20,7 +20,7 @@ pub const AstExpr = union(enum) {
             .ident => {},
             .call => |c| {
                 var i: u32 = 0;
-                while (i <= c.items.len) : (i += 1) {
+                while (i < c.items.len) : (i += 1) {
                     c.items[i].deinit(allocator);
                 }
                 c.deinit();
@@ -50,7 +50,7 @@ pub const AstExpr = union(enum) {
 
                 var i: u32 = 1;
 
-                while (i <= asts.items.len) : (i += 1) {
+                while (i < asts.items.len) : (i += 1) {
                     p(" - ", .{});
                     print(asts.items[i]);
                 }
@@ -66,6 +66,7 @@ pub const AstExpr = union(enum) {
                 }
             }
         }
+        p("\n", .{});
     }
 };
 
@@ -77,7 +78,7 @@ const ParseError = error {
 
 pub fn parse_expr(inp: []const u8, allocator: Allocator) ParseError!AstExpr {
     const str = strings.trimWhiteSpace(inp);
-    std.debug.print("parsing: |{s}|\n", .{str});
+    //std.debug.print("parsing: |{s}|\n", .{str});
 
     if (str.len == 0) {
         return ParseError.Empty;
@@ -87,8 +88,6 @@ pub fn parse_expr(inp: []const u8, allocator: Allocator) ParseError!AstExpr {
 
     // parse a call expression
     if (str[0] == '(') {
-
-        std.debug.print("len: {d}, [len - 1]: {c}\n", .{len, inp[len - 1]});
         return if (inp[len - 1] == ')') {
             var sub = inp[1..len-1];
             return try parseCall(sub, allocator);
@@ -112,12 +111,11 @@ pub fn parse_expr(inp: []const u8, allocator: Allocator) ParseError!AstExpr {
 }
 
 fn parseCall(inp: []const u8, allocator: Allocator) ParseError!AstExpr {
-    std.debug.print("parsing call\n", .{});
+    const str = strings.trimWhiteSpace(inp);
     var vec = Vec(AstExpr).init(allocator);
-    var split = strings.split(inp, ' ');
+    var split = strings.splitWhiteSpace(str);
 
     while (split.split) |e| {
-        std.debug.print("parsing item\n", .{});
         const expr = try parse_expr(e, allocator);
         try vec.append(expr);
         split = strings.splitWhiteSpace(split.rest);

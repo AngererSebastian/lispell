@@ -70,7 +70,7 @@ pub fn splitWhiteSpace(inp: []const u8) SplitResult {
 pub fn findWhitespace(str: []const u8) usize {
     var result: usize = 0;
 
-    while (result < str.len and isWhiteSpace(str[result]))
+    while (result < str.len and !isWhiteSpace(str[result]))
         : (result += 1) {}
     
     return result;
@@ -139,4 +139,12 @@ test "trim whitespace" {
     const result = trimWhiteSpace(data);
 
     try std.testing.expectEqualStrings("Hello world", result);
+}
+
+test "find whitespace" {
+    const data = "Hello world";
+    const result = findWhitespace(data);
+    const expected: usize = 5;
+
+    try std.testing.expectEqual(expected, result);
 }

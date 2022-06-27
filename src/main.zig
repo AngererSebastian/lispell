@@ -17,9 +17,7 @@ pub fn main() anyerror!void {
     var content = try std.fs.cwd().readFileAlloc(allocator, file_name, 4098);
     defer allocator.free(content);
 
-    var string = String.init(&allocator);
-    //const string = util.StrFromU8(content, @as(*@TypeOf(allocator), &allocator));
-    const ast = try parse.parse_expr(&string, allocator);
+    const ast = try parse.parse_expr(content, allocator);
     ast.print();
     defer ast.deinit(allocator);
     std.log.info("The filename is {s}", .{file_name});

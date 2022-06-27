@@ -1,5 +1,6 @@
 const std = @import("std");
 const util = @import("./util.zig");
+const strings = @import("./strings.zig");
 const String = @import("./deps/zig-string/zig-string.zig").String;
 
 const Allocator = std.mem.Allocator;
@@ -7,16 +8,16 @@ const Vec = std.ArrayList;
 
 pub const AstExpr = union(enum) {
     number: f64,
-    string: []u8,
-    ident: []u8,
+    string: []const u8,
+    ident: []const u8,
     call: Vec(AstExpr),
     quoted: []AstExpr,
 
     pub fn deinit(self: AstExpr, allocator: Allocator) void {
         switch (self) {
             .number => {},
-            .string => |s| allocator.free(s),
-            .ident => |i| allocator.free(i),
+            .string => {},
+            .ident => {},
             .call => |c| {
                 var i: u32 = 0;
                 while (i <= c.items.len) : (i += 1) {
@@ -74,30 +75,31 @@ const ParseError = error {
     UnclosedString,
 } || String.Error;
 
-pub fn parse_expr(inp: *String, allocator: Allocator) ParseError!AstExpr {
-    inp.trim(" ");
+pub fn parse_expr(inp: []const u8, allocator: Allocator) ParseError!AstExpr {
+    const str = strings.trimWhiteSpace(inp);
+    std.debug.print("parsing: |{s}|\n", .{str});
 
-    if (inp.isEmpty()) {
+    if (str.len == 0) {
         return ParseError.Empty;
     }
 
-    var str = inp.buffer orelse return ParseError.Empty;
     const len = str.len;
 
     // parse a call expression
     if (str[0] == '(') {
-        return if (str[len - 1] == ')') {
-            var sub = str[1..len-1];
-            const subStr = util.StrFromU8(sub, inp.allocator);
-            return try parseCall(subStr, allocator);
+
+        std.debug.print("len: {d}, [len - 1]: {c}\n", .{len, inp[len - 1]});
+        return if (inp[len - 1] == ')') {
+            var sub = inp[1..len-1];
+            return try parseCall(sub, allocator);
         }
         else ParseError.MissingClosingParan;
     }
 
     if(str[0] == '"') {
         var sub = str[1..];
-        const subStr = util.StrFromU8(sub, inp.allocator);
-        const end = subStr.find(&[_]u8{'"'}) orelse return ParseError.UnclosedString;
+        //const end = subStr.find(&[_]u8{'"'}) orelse return ParseError.UnclosedString;
+        const end = strings.find(sub, '"');
 
         return AstExpr { .string = str[1..end + 1]};
     }
@@ -109,14 +111,16 @@ pub fn parse_expr(inp: *String, allocator: Allocator) ParseError!AstExpr {
     }
 }
 
-fn parseCall(inp: String, allocator: Allocator) ParseError!AstExpr {
-    var block: u64 = 0;
+fn parseCall(inp: []const u8, allocator: Allocator) ParseError!AstExpr {
+    std.debug.print("parsing call\n", .{});
     var vec = Vec(AstExpr).init(allocator);
+    var split = strings.split(inp, ' ');
 
-    while (try inp.splitToString(" ", block)) |*e| {
+    while (split.split) |e| {
+        std.debug.print("parsing item\n", .{});
         const expr = try parse_expr(e, allocator);
         try vec.append(expr);
-        block += 1;
+        split = strings.splitWhiteSpace(split.rest);
     }
 
     return AstExpr {.call = vec};

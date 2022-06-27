@@ -32,6 +32,40 @@ pub const AstExpr = union(enum) {
             },
         }
     }
+
+    pub fn print(self: AstExpr) void {
+        const p = std.debug.print;
+        switch (self) {
+            .number => |n| p("number: {d}", .{n}),
+            .string => |s| p("string: {s}", .{s}),
+            .ident => |i| p("ident: {s}", .{i}),
+            .call => |asts| {
+                if (asts.items.len == 0) {
+                    return;
+                }
+
+                p("function: ", .{});
+                print(asts.items[0]);
+
+                var i: u32 = 1;
+
+                while (i <= asts.items.len) : (i += 1) {
+                    p(" - ", .{});
+                    print(asts.items[i]);
+                }
+            },
+            .quoted => |asts| {
+                p("list: ", .{});
+
+                var i: u32 = 0;
+
+                while (i <= asts.len) : (i += 1) {
+                    p(" - ", .{});
+                    print(asts[i]);
+                }
+            }
+        }
+    }
 };
 
 const ParseError = error {

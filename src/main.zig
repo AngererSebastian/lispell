@@ -20,6 +20,7 @@ pub fn main() anyerror!void {
     var string = String.init(&allocator);
     //const string = util.StrFromU8(content, @as(*@TypeOf(allocator), &allocator));
     const ast = try parse.parse_expr(&string, allocator);
+    ast.print();
     defer ast.deinit(allocator);
     std.log.info("The filename is {s}", .{file_name});
 }

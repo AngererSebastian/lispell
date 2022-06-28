@@ -4,11 +4,15 @@ const Allocator = std.mem.Allocator;
 
 const space_buf = " " ** 256;
 
+pub const TakeError = error {
+    TypeMismatch
+};
+
 pub const AstExpr = union(enum) {
     number: f64,
     string: []const u8,
     ident: []const u8,
-    call: Vec(AstExpr),
+    call: []AstExpr,
     quoted: []AstExpr,
 
     pub fn deinit(self: AstExpr, allocator: Allocator) void {
@@ -17,11 +21,10 @@ pub const AstExpr = union(enum) {
             .string => {},
             .ident => {},
             .call => |c| {
-                var i: u32 = 0;
-                while (i < c.items.len) : (i += 1) {
-                    c.items[i].deinit(allocator);
+                for (c) |a| {
+                    a.deinit(allocator);
                 }
-                c.deinit();
+                allocator.free(c);
             },
             .quoted => |c| {
                 for (c) |e| {
@@ -32,25 +35,25 @@ pub const AstExpr = union(enum) {
         }
     }
 
-    pub fn print(self: AstExpr, ident: u8) void {
+    pub fn print(self: AstExpr, indent: u8) void {
         const p = std.debug.print;
         switch (self) {
             .number => |n| p("number: {d}", .{n}),
             .string => |s| p("string: {s}", .{s}),
             .ident => |i| p("ident: {s}", .{i}),
             .call => |asts| {
-                if (asts.items.len == 0) {
+                if (asts.len == 0) {
                     return;
                 }
 
-                p("{s}function: \n", .{space_buf[0..ident]});
-                print(asts.items[0], ident+1);
+                p("{s}function: \n", .{space_buf[0..indent]});
+                print(asts[0], indent+1);
 
                 var i: u32 = 1;
 
-                while (i < asts.items.len) : (i += 1) {
-                    p("{s} - ", .{space_buf[0..ident]});
-                    print(asts.items[i], ident + 1);
+                while (i < asts.len) : (i += 1) {
+                    p("{s} - ", .{space_buf[0..indent]});
+                    print(asts[i], indent + 1);
                 }
             },
             .quoted => |asts| {
@@ -59,11 +62,32 @@ pub const AstExpr = union(enum) {
                 var i: u32 = 0;
 
                 while (i <= asts.len) : (i += 1) {
-                    p("{s} - ", .{space_buf[0..ident]});
-                    print(asts[i], ident + 1);
+                    p("{s} - ", .{space_buf[0..indent]});
+                    print(asts[i], indent + 1);
                 }
             }
         }
         p("\n", .{});
+    }
+
+    pub fn number(self: AstExpr) TakeError!f64 {
+        switch (self) {
+            .number => |n| return n,
+            else => return TakeError.TypeMismatch,
+        }
+    }
+
+    pub fn string(self: AstExpr) TakeError![]const u8 {
+        switch (self) {
+            .string => |s| return s,
+            else => return TakeError.TypeMismatch,
+        }
+    }
+
+    pub fn ident(self: AstExpr) TakeError![]const u8 {
+        switch (self) {
+            .ident => |s| return s,
+            else => return TakeError.TypeMismatch,
+        }
     }
 };

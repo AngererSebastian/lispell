@@ -87,7 +87,7 @@ fn parseCall(inp: []const u8, allocator: Allocator) ParseError!AstResult {
     }
 
     return AstResult {
-        .result = AstExpr { .call = vec },
+        .result = AstExpr { .call = vec.toOwnedSlice() },
         .remaining = inp
     };
 }

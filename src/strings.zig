@@ -48,7 +48,7 @@ pub const SplitResult = struct {
 };
 
 pub fn split(inp: []const u8, toSplit: u8) SplitResult {
-    var end = find(inp, toSplit);
+    var end = find(inp, toSplit) catch 0;
 
     return .{
         .split = if (end > 0) inp[0..end] else null,
@@ -57,7 +57,7 @@ pub fn split(inp: []const u8, toSplit: u8) SplitResult {
 }
 
 pub fn splitWhiteSpace(inp: []const u8) SplitResult {
-    var end = findWhitespace(inp);
+    var end = findWhitespace(inp) catch 0;
 
     return .{
         .split = if (end > 0) inp[0..end] else null,
@@ -67,32 +67,50 @@ pub fn splitWhiteSpace(inp: []const u8) SplitResult {
     };
 }
 
-pub fn findWhitespace(str: []const u8) usize {
+pub const FindError = error {
+    NotFound
+};
+
+pub fn findWhitespace(str: []const u8) FindError!usize {
     var result: usize = 0;
 
     while (result < str.len and !isWhiteSpace(str[result]))
         : (result += 1) {}
     
-    return result;
+    if (result < str.len) {
+        return result;
+    }
+    else {
+        return FindError.NotFound;
+    }
 }
 
-pub fn find(str: []const u8, toFind: u8) usize {
+pub fn find(str: []const u8, toFind: u8) FindError!usize {
     var result: usize = 0;
 
     while (result < str.len and str[result] != toFind)
         : (result += 1) {}
     
-    return result;
+    if (result < str.len) {
+        return result;
+    }
+    else {
+        return FindError.NotFound;
+    }
 }
 
-pub fn findEnd(str: []const u8, toFind: u8) usize {
-    var result = str.len-1;
-
-    while (result >= 0 and str[result] != toFind)
+pub fn findEnd(str: []const u8, toFind: u8) FindError!usize {
+    var result: isize = @intCast(isize, str.len) - 1;
+    while (result >= 0 and str[@intCast(usize, result)] != toFind)
         : (result -= 1) {
         }
     
-    return result;
+    if (result >= 0) {
+        return @intCast(usize, result);
+    }
+    else {
+        return FindError.NotFound;
+    }
 }
 
 pub fn isWhiteSpace(c: u8) bool {
@@ -103,7 +121,7 @@ pub fn isWhiteSpace(c: u8) bool {
 
 test "simple find" {
     const data = "Hello world";
-    const result = find(data, 'l');
+    const result = try find(data, 'l');
     const expected: usize = 2;
 
     try std.testing.expectEqual(expected, result);
@@ -111,7 +129,7 @@ test "simple find" {
 
 test "simple reverse find" {
     const data = "Hello world";
-    const result = findEnd(data, 'l');
+    const result = try findEnd(data, 'l');
     const expected: usize = 9;
 
     try std.testing.expectEqual(expected, result);
@@ -143,8 +161,15 @@ test "trim whitespace" {
 
 test "find whitespace" {
     const data = "Hello world";
-    const result = findWhitespace(data);
+    const result = try findWhitespace(data);
     const expected: usize = 5;
 
     try std.testing.expectEqual(expected, result);
+}
+
+test "find not found" {
+    const data = "aaaaaaaaaaaaaaaaaaaa";
+    const result = find(data, 'b');
+
+    try std.testing.expectEqual(FindError.NotFound, result);
 }

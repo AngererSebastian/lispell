@@ -1,125 +1,135 @@
 const std = @import("std");
 const util = @import("./util.zig");
 const strings = @import("./strings.zig");
-const String = @import("./deps/zig-string/zig-string.zig").String;
 
 const Allocator = std.mem.Allocator;
 const Vec = std.ArrayList;
+const AstExpr = @import("./ast.zig").AstExpr;
 
-pub const AstExpr = union(enum) {
-    number: f64,
-    string: []const u8,
-    ident: []const u8,
-    call: Vec(AstExpr),
-    quoted: []AstExpr,
-
-    pub fn deinit(self: AstExpr, allocator: Allocator) void {
-        switch (self) {
-            .number => {},
-            .string => {},
-            .ident => {},
-            .call => |c| {
-                var i: u32 = 0;
-                while (i < c.items.len) : (i += 1) {
-                    c.items[i].deinit(allocator);
-                }
-                c.deinit();
-            },
-            .quoted => |c| {
-                for (c) |e| {
-                    e.deinit(allocator);
-                }
-                allocator.free(c);
-            },
-        }
-    }
-
-    pub fn print(self: AstExpr) void {
-        const p = std.debug.print;
-        switch (self) {
-            .number => |n| p("number: {d}", .{n}),
-            .string => |s| p("string: {s}", .{s}),
-            .ident => |i| p("ident: {s}", .{i}),
-            .call => |asts| {
-                if (asts.items.len == 0) {
-                    return;
-                }
-
-                p("function: ", .{});
-                print(asts.items[0]);
-
-                var i: u32 = 1;
-
-                while (i < asts.items.len) : (i += 1) {
-                    p(" - ", .{});
-                    print(asts.items[i]);
-                }
-            },
-            .quoted => |asts| {
-                p("list: ", .{});
-
-                var i: u32 = 0;
-
-                while (i <= asts.len) : (i += 1) {
-                    p(" - ", .{});
-                    print(asts[i]);
-                }
-            }
-        }
-        p("\n", .{});
-    }
-};
 
 const ParseError = error {
     Empty,
     MissingClosingParan,
+    InvalidNumber,
+    OutOfMemory,
     UnclosedString,
-} || String.Error;
+};
 
-pub fn parse_expr(inp: []const u8, allocator: Allocator) ParseError!AstExpr {
+fn ParseResult(comptime resultType: type) type {
+    return struct {
+        result: resultType,
+        remaining: []const u8,
+    };
+}
+
+const AstResult = ParseResult(AstExpr);
+
+pub fn parse_expr(inp: []const u8, allocator: Allocator) ParseError!AstResult {
     const str = strings.trimWhiteSpace(inp);
-    //std.debug.print("parsing: |{s}|\n", .{str});
+    std.debug.print("parsing expr: {s}\n", .{str});
 
     if (str.len == 0) {
         return ParseError.Empty;
     }
 
-    const len = str.len;
-
     // parse a call expression
     if (str[0] == '(') {
-        return if (inp[len - 1] == ')') {
-            var sub = inp[1..len-1];
-            return try parseCall(sub, allocator);
-        }
-        else ParseError.MissingClosingParan;
+        const end = findClosingParan(str) catch return ParseError.MissingClosingParan;
+        var sub = str[1..end];
+        const res =  try parseCall(sub, allocator);
+        return AstResult {
+            .result = res.result,
+            .remaining = if (end < str.len)
+                            str[end+1..]
+                         else ""
+        };
     }
 
     if(str[0] == '"') {
         var sub = str[1..];
-        //const end = subStr.find(&[_]u8{'"'}) orelse return ParseError.UnclosedString;
-        const end = strings.find(sub, '"');
+        const end = strings.find(sub, '"') catch return ParseError.UnclosedString;
 
-        return AstExpr { .string = str[1..end + 1]};
+        return AstResult {
+            .result = AstExpr { .string = str[1..end + 1]},
+            .remaining = str[end+1..]
+        };
     }
 
-    if (std.fmt.parseFloat(f64, str)) |f| {
-        return AstExpr { .number = f };
-    } else |_| {
-        return AstExpr { .ident = str };
+    const endNumber = findNonNumberChar(str) catch str.len;
+    if (endNumber != 0) {
+        std.debug.print("parsing {d} chars \"{s}\" as number\n", .{endNumber, str[0..endNumber]});
+        const num = std.fmt.parseFloat(f64, str[0..endNumber]) catch return ParseError.InvalidNumber;
+        return AstResult {
+            .result = AstExpr { .number = num },
+            .remaining = str[endNumber..],
+        };
+    } else {
+        std.debug.print("parsing {s} as identifier\n", .{str});
+        const identEnd = strings.findWhitespace(str) 
+                catch strings.find(str, ')')
+                catch str.len;
+
+        return AstResult {
+            .result = AstExpr { .ident = str[0..identEnd] },
+            .remaining = str[identEnd..],
+        };
     }
 }
 
-fn parseCall(inp: []const u8, allocator: Allocator) ParseError!AstExpr {
-    const str = strings.trimWhiteSpace(inp);
+fn parseCall(inp: []const u8, allocator: Allocator) ParseError!AstResult {
+    var str = strings.trimWhiteSpace(inp);
     var vec = Vec(AstExpr).init(allocator);
-    var split = strings.splitWhiteSpace(str);
 
-    while (split.split) |e| {
-        const expr = try parse_expr(e, allocator);
-        try vec.append(expr);
-        split = strings.splitWhiteSpace(split.rest);
+    while (str.len != 0) {
+        const r= try parse_expr(str, allocator);
+        try vec.append(r.result);
+        str = r.remaining;
     }
 
-    return AstExpr {.call = vec};
+    return AstResult {
+        .result = AstExpr { .call = vec },
+        .remaining = inp
+    };
+}
+
+fn findNonNumberChar(str: []const u8) strings.FindError!usize {
+    var result: usize = 0;
+
+    while(result < str.len 
+        and (isNumber(str[result]) 
+        or str[result] == '.')) 
+        : (result += 1) { }
+
+    if (result < str.len) {
+        return result;
+    }
+    else {
+        return strings.FindError.NotFound;
+    }
+}
+
+fn findClosingParan(str: []const u8) strings.FindError!usize {
+    var openings: usize = 0;
+
+    for (str) |c, i| {
+        //std.debug.print("c: {c}, openings: {d}\n", .{c, openings});
+        switch (c) {
+            '(' => openings += 1,
+            ')' => {
+                openings -= 1;
+                if (openings == 0) {
+                    return i;
+                }
+            },
+
+            else => {}
+        }
+    }
+
+    return strings.FindError.NotFound;
+}
+
+fn isNumber(c: u8) bool {
+    return c >= '0'
+       and c <= '9';
 }

@@ -6,17 +6,20 @@ const TakeError = astT.TakeError;
 const Type = enum {
     number,
     string,
+    boolean,
     function,
 };
 const Value = union(Type) {
     number: f64,
     string: []const u8,
+    boolean: bool,
     function: Function,
 
     pub fn print(self: Value) void {
         switch (self) {
             .number => |n| std.debug.print("{d}", .{n}),
             .string => |s| std.debug.print("\"{s}\"", .{s}),
+            .boolean => |b| std.debug.print("{b}", .{b}),
             .function => std.debug.print("function", .{}),
         }
     }
@@ -59,7 +62,6 @@ pub fn exec(ast: *const AstExpr) ExecError!Value {
 pub fn runBuiltins(function: AstExpr, args: []AstExpr) ExecError!Value {
     const fun = function.get_ident() catch return ExecError.UnknownFunction;
 
-    std.debug.print("function: \"{s}\"\n", .{fun});
     if (std.mem.eql(u8, "+", fun)) {
         var sum: f64 = 0;
 
@@ -68,6 +70,20 @@ pub fn runBuiltins(function: AstExpr, args: []AstExpr) ExecError!Value {
             sum += try val.get_number();
         }
         return Value { .number = sum };
+    } else if (std.mem.eql(u8, "-", fun)) {
+        if (args.len == 0) {
+            return ExecError.TypeMismatch;
+        }
+
+        const r = try exec(&args[0]);
+        var first: f64 = try r.get_number();
+
+        for (args[1..]) |*a| {
+            const val = try exec(a);
+            first -= try val.get_number();
+        }
+
+        return Value { .number = first };
     }
 
     return ExecError.UnknownFunction;

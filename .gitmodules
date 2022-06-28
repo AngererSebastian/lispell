@@ -1,3 +1,0 @@
-[submodule "deps/zig-string"]
-	path = deps/zig-string
-	url = https://github.com/JakubSzark/zig-string

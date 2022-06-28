@@ -18,9 +18,12 @@ pub fn main() anyerror!void {
     defer allocator.free(content);
 
     const ast = (try parse.parse_expr(content, allocator)).result;
-    ast.print(0);
     defer ast.deinit(allocator);
-    std.log.info("The filename is {s}", .{file_name});
+
+    ast.print(0);
+    const val = try @import("./exec.zig").exec(&ast);
+
+    val.print();
 }
 
 test "basic test" {

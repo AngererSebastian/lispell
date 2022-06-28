@@ -70,21 +70,21 @@ pub const AstExpr = union(enum) {
         p("\n", .{});
     }
 
-    pub fn number(self: AstExpr) TakeError!f64 {
+    pub fn get_number(self: AstExpr) TakeError!f64 {
         switch (self) {
             .number => |n| return n,
             else => return TakeError.TypeMismatch,
         }
     }
 
-    pub fn string(self: AstExpr) TakeError![]const u8 {
+    pub fn get_string(self: AstExpr) TakeError![]const u8 {
         switch (self) {
             .string => |s| return s,
             else => return TakeError.TypeMismatch,
         }
     }
 
-    pub fn ident(self: AstExpr) TakeError![]const u8 {
+    pub fn get_ident(self: AstExpr) TakeError![]const u8 {
         switch (self) {
             .ident => |s| return s,
             else => return TakeError.TypeMismatch,

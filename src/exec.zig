@@ -59,6 +59,20 @@ pub fn runBuiltins(function: AstExpr, args: []AstExpr) ExecError!Value {
             prod *= try val.get_number();
         }
         return Value { .number = prod };
+    } else if (std.mem.eql(u8, "/", fun)) {
+        if (args.len == 0) {
+            return ExecError.TypeMismatch;
+        }
+
+        const r = try exec(&args[0]);
+        var first: f64 = try r.get_number();
+
+        for (args[1..]) |*a| {
+            const val = try exec(a);
+            first /= try val.get_number();
+        }
+
+        return Value { .number = first };
     }
 
     return ExecError.UnknownFunction;

@@ -1,7 +1,6 @@
 const std = @import("std");
 const parse = @import("./parse.zig");
-const util = @import("./util.zig");
-const String = @import("./deps/zig-string/zig-string.zig").String;
+const cells = @import("./cells.zig");
 var allocator = std.heap.page_allocator; 
 
 pub fn main() anyerror!void {
@@ -17,13 +16,12 @@ pub fn main() anyerror!void {
     var content = try std.fs.cwd().readFileAlloc(allocator, file_name, 4098);
     defer allocator.free(content);
 
-    const ast = (try parse.parse_expr(content, allocator)).result;
-    defer ast.deinit(allocator);
+    const table = try cells.Table.from(content, allocator);
 
-    ast.print(0);
-    const val = try @import("./exec.zig").exec(&ast);
+    const out = try table.format(allocator);
+    defer allocator.free(out);
 
-    val.print();
+    std.debug.print("{s}", .{out});
 }
 
 test "basic test" {

@@ -2,44 +2,11 @@ const std = @import("std");
 const astT = @import("./ast.zig");
 const AstExpr = astT.AstExpr;
 const TakeError = astT.TakeError;
+const Value = @import("./cells.zig").Value;
 
-const Type = enum {
-    number,
-    string,
-    boolean,
-    function,
-};
-const Value = union(Type) {
-    number: f64,
-    string: []const u8,
-    boolean: bool,
-    function: Function,
-
-    pub fn print(self: Value) void {
-        switch (self) {
-            .number => |n| std.debug.print("{d}", .{n}),
-            .string => |s| std.debug.print("\"{s}\"", .{s}),
-            .boolean => |b| std.debug.print("{b}", .{b}),
-            .function => std.debug.print("function", .{}),
-        }
-    }
-
-    fn get_number(self: Value) TakeError!f64 {
-        switch (self) {
-            .number => |n| return n,
-            else => return TakeError.TypeMismatch,
-        }
-    }
-};
-
-const ExecError = error {
+pub const ExecError = error {
     UnknownFunction,
     TypeMismatch,
-};
-
-const Function = struct {
-    args: []struct {name: []const u8, type: Type},
-    body: []const AstExpr,
 };
 
 pub fn exec(ast: *const AstExpr) ExecError!Value {

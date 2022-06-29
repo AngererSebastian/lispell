@@ -1,5 +1,4 @@
 const std = @import("std");
-const util = @import("./util.zig");
 const strings = @import("./strings.zig");
 
 const Allocator = std.mem.Allocator;
@@ -7,7 +6,7 @@ const Vec = std.ArrayList;
 const AstExpr = @import("./ast.zig").AstExpr;
 
 
-const ParseError = error {
+pub const ParseError = error {
     Empty,
     MissingClosingParan,
     InvalidNumber,

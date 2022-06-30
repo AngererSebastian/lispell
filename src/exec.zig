@@ -29,6 +29,7 @@ pub fn exec(ast: *const AstExpr) ExecError!Value {
 pub fn runBuiltins(function: AstExpr, args: []AstExpr) ExecError!Value {
     const fun = function.get_ident() catch return ExecError.UnknownFunction;
 
+        // + operator
     if (std.mem.eql(u8, "+", fun)) {
         var sum: f64 = 0;
 
@@ -37,6 +38,7 @@ pub fn runBuiltins(function: AstExpr, args: []AstExpr) ExecError!Value {
             sum += try val.get_number();
         }
         return Value { .number = sum };
+        // - operator
     } else if (std.mem.eql(u8, "-", fun)) {
         if (args.len == 0) {
             return ExecError.TypeMismatch;
@@ -51,6 +53,7 @@ pub fn runBuiltins(function: AstExpr, args: []AstExpr) ExecError!Value {
         }
 
         return Value { .number = first };
+        // * operator
     } else if (std.mem.eql(u8, "*", fun)) {
         var prod: f64 = 1;
 
@@ -59,6 +62,7 @@ pub fn runBuiltins(function: AstExpr, args: []AstExpr) ExecError!Value {
             prod *= try val.get_number();
         }
         return Value { .number = prod };
+        // == operator
     } else if (std.mem.eql(u8, "/", fun)) {
         if (args.len == 0) {
             return ExecError.TypeMismatch;
@@ -73,6 +77,21 @@ pub fn runBuiltins(function: AstExpr, args: []AstExpr) ExecError!Value {
         }
 
         return Value { .number = first };
+    } else if (std.mem.eql(u8, "==", fun)) {
+        if (args.len == 0) {
+            return ExecError.TypeMismatch;
+        }
+
+        const r = try exec(&args[0]);
+        var first: f64 = try r.get_number();
+        var result: bool = true;
+
+        for (args[1..]) |*a| {
+            const val = try exec(a);
+            result = result and first == try val.get_number();
+        }
+
+        return Value { .boolean = result };
     }
 
     return ExecError.UnknownFunction;

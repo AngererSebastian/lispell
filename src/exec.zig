@@ -1,114 +1,169 @@
 const std = @import("std");
+const equal = std.mem.eql;
+const ArrayList = std.ArrayList;
+const Allocator = std.mem.Allocator;
+
+
 const astT = @import("./ast.zig");
 const AstExpr = astT.AstExpr;
 const TakeError = astT.TakeError;
-const Value = @import("./cells.zig").Value;
+
+const cells = @import("./cells.zig");
+const Value = cells.Value;
+const Type = cells.Type;
 
 pub const EvalError = error {
     UnknownFunction,
+    UnknownType,
     TypeMismatch,
+    OutOfMemory,
     InvalidArgumentLength,
 };
 
-pub fn evaluate(ast: *const AstExpr) EvalError!Value {
+pub fn evaluate(ast: *const AstExpr, allo: Allocator) EvalError!Value {
     switch (ast.*) {
         .number => |n| return Value {.number = n },
         .string => |s| return Value {.string = s },
         .call => |cs| {
-            if (cs.len == 0){ 
+            if (cs.len == 0){
                 return EvalError.UnknownFunction;
             }
 
             const fun = cs[0];
 
-            return evalBuiltins(fun, cs[1..]);
+            return evalBuiltins(fun, cs[1..], allo);
         },
         else => return EvalError.UnknownFunction,
     }
 }
 
 // runs builtin commands/functions (+ - * == if)
-pub fn evalBuiltins(function: AstExpr, args: []AstExpr) EvalError!Value {
+pub fn evalBuiltins(function: AstExpr, args: []AstExpr, allo: Allocator) EvalError!Value {
     const fun = function.get_ident() catch return EvalError.UnknownFunction;
 
         // + operator
-    if (std.mem.eql(u8, "+", fun)) {
+    if (equal(u8, "+", fun)) {
         var sum: f64 = 0;
 
         for (args) |*a| {
-            const val = try evaluate(a);
+            const val = try evaluate(a, allo);
             sum += try val.get_number();
         }
         return Value { .number = sum };
         // - operator
-    } else if (std.mem.eql(u8, "-", fun)) {
+    } else if (equal(u8, "-", fun)) {
         if (args.len == 0) {
             return EvalError.InvalidArgumentLength;
         }
 
-        const r = try evaluate(&args[0]);
+        const r = try evaluate(&args[0], allo);
         var first: f64 = try r.get_number();
 
         for (args[1..]) |*a| {
-            const val = try evaluate(a);
+            const val = try evaluate(a, allo);
             first -= try val.get_number();
         }
 
         return Value { .number = first };
         // * operator
-    } else if (std.mem.eql(u8, "*", fun)) {
+    } else if (equal(u8, "*", fun)) {
         var prod: f64 = 1;
 
         for (args) |*a| {
-            const val = try evaluate(a);
+            const val = try evaluate(a, allo);
             prod *= try val.get_number();
         }
         return Value { .number = prod };
         // == operator
-    } else if (std.mem.eql(u8, "/", fun)) {
+    } else if (equal(u8, "/", fun)) {
         if (args.len == 0) {
             return EvalError.InvalidArgumentLength;
         }
 
-        const r = try evaluate(&args[0]);
+        const r = try evaluate(&args[0], allo);
         var first: f64 = try r.get_number();
 
         for (args[1..]) |*a| {
-            const val = try evaluate(a);
+            const val = try evaluate(a, allo);
             first /= try val.get_number();
         }
 
         return Value { .number = first };
         // equals operator
-    } else if (std.mem.eql(u8, "==", fun)) {
+    } else if (equal(u8, "==", fun)) {
         if (args.len == 0) {
             return EvalError.InvalidArgumentLength;
         }
 
-        const r = try evaluate(&args[0]);
+        const r = try evaluate(&args[0], allo);
         var first: f64 = try r.get_number();
         var result: bool = true;
 
         for (args[1..]) |*a| {
-            const val = try evaluate(a);
+            const val = try evaluate(a, allo);
             result = result and first == try val.get_number();
         }
 
         return Value { .boolean = result };
         // if expr e.g (if cond expr else-expr)
-    } else if (std.mem.eql(u8, "if", fun)) {
+    } else if (equal(u8, "if", fun)) {
         if (args.len != 3) {
             return EvalError.InvalidArgumentLength;
         }
 
-        const val = try evaluate(&args[0]);
+        const val = try evaluate(&args[0], allo);
         const b = try val.get_bool();
 
         return if (b)
-            evaluate(&args[1])
+            evaluate(&args[1], allo)
         else
-            evaluate(&args[2]);
+            evaluate(&args[2], allo);
+    } else if (equal(u8, "fn", fun)) {
+        return process_function(args, allo);
     }
 
     return EvalError.UnknownFunction;
+}
+
+fn process_function(atoms: []AstExpr, allo: Allocator) EvalError!Value {
+    if (atoms.len >= 2)
+        return EvalError.InvalidArgumentLength;
+
+    const args = try atoms[0].get_call();
+    const expr = atoms[1..];
+
+    var vargs = ArrayList(cells.FunctionArg).init(allo);
+
+    for (args) |a| {
+        const arg = try a.get_call();
+        if (arg.len != 2)
+            return EvalError.InvalidArgumentLength;
+
+        try vargs.append(
+            cells.FunctionArg {
+                .name = try arg[0].get_ident(),
+                .type = try name_to_type(try arg[1].get_ident()),
+            }
+        );
+    }
+
+    const function = cells.Function {
+        .args = vargs.toOwnedSlice(),
+        .body = expr
+    };
+
+    return Value {.function = function};
+}
+
+fn name_to_type(name: []const u8) EvalError!Type {
+    return if (equal(u8, "number", name))
+        Type.number
+    else if (equal(u8, "bool", name))
+        Type.boolean
+    else if (equal(u8, "string", name))
+        Type.string
+    else if (equal(u8, "function", name))
+        Type.function
+    else
+        return EvalError.UnknownType;
 }

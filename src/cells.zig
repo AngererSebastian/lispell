@@ -60,8 +60,13 @@ pub const Value = union(Type) {
     }
 };
 
+pub const FunctionArg = struct {
+    name: []const u8,
+    type: Type
+};
+
 pub const Function = struct {
-    args: []struct {name: []const u8, type: Type},
+    args: []FunctionArg,
     body: []const AstExpr,
 };
 
@@ -80,14 +85,14 @@ pub const Table = struct {
 
         while (true) {
             const result = try parse.parse_expr(in, allo);
-            const val = try exec.evaluate(&result.result);
+            const val = try exec.evaluate(&result.result, allo);
 
             try row.append(val);
             in = result.remaining;
 
             if (in.len == 0 or in.len == 1)
                 break;
-            
+
             if (in[0] == '\n') {
                 try table.append(row.toOwnedSlice());
             }

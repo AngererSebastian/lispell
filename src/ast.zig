@@ -90,4 +90,11 @@ pub const AstExpr = union(enum) {
             else => return TakeError.TypeMismatch,
         }
     }
+
+    pub fn get_call(self: @This()) TakeError![]AstExpr {
+        switch (self) {
+            .call => |c| return c,
+            else => return TakeError.TypeMismatch,
+        }
+    }
 };

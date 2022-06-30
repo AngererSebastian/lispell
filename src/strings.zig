@@ -35,6 +35,10 @@ pub fn trimWhiteSpaceStart(inp: []const u8) []const u8 {
 }
 
 pub fn trimWhiteSpaceEnd(inp: []const u8) []const u8 {
+    if (inp.len == 0) {
+        return inp;
+    }
+
     var end: usize = inp.len - 1;
 
     while(end >= 0 and isWhiteSpace(inp[end])) : (end -= 1) { }

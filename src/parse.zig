@@ -25,7 +25,7 @@ const AstResult = ParseResult(AstExpr);
 
 pub fn parse_expr(inp: []const u8, allocator: Allocator) ParseError!AstResult {
     const str = strings.trimWhiteSpace(inp);
-    std.debug.print("parsing expr: {s}\n", .{str});
+    std.debug.print("parsing expr: \"{s}\"\n", .{str});
 
     if (str.len == 0) {
         return ParseError.Empty;

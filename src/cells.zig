@@ -31,10 +31,10 @@ pub const Value = union(Type) {
         switch (self) {
             .number => |n| return (try std.fmt.bufPrint(buf, "{d}", .{n})).len,
             .string => |s| {
-                std.mem.copy(u8, buf[1..s.len-1], s);
+                std.mem.copy(u8, buf[1..s.len+1], s);
                 buf[0] = '"';
-                buf[s.len - 1] = '"';
-                return s.len;
+                buf[s.len + 1] = '"';
+                return s.len + 2;
             },
             .boolean => |b| return (try std.fmt.bufPrint(buf, "{b}", .{b})).len,
             .function => {
@@ -80,12 +80,12 @@ pub const Table = struct {
 
         while (true) {
             const result = try parse.parse_expr(in, allo);
-            const val = try exec.exec(&result.result);
+            const val = try exec.evaluate(&result.result);
 
             try row.append(val);
             in = result.remaining;
 
-            if (in.len == 0)
+            if (in.len == 0 or in.len == 1)
                 break;
             
             if (in[0] == '\n') {

@@ -51,6 +51,13 @@ pub const Value = union(Type) {
             else => return TakeError.TypeMismatch,
         }
     }
+
+    pub fn get_bool(self: Value) TakeError!bool {
+        switch (self) {
+            .boolean => |b| return b,
+            else => return TakeError.TypeMismatch,
+        }
+    }
 };
 
 pub const Function = struct {

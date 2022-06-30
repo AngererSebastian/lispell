@@ -7,6 +7,7 @@ const Value = @import("./cells.zig").Value;
 pub const ExecError = error {
     UnknownFunction,
     TypeMismatch,
+    InvalidArgumentLength,
 };
 
 pub fn exec(ast: *const AstExpr) ExecError!Value {
@@ -92,6 +93,18 @@ pub fn runBuiltins(function: AstExpr, args: []AstExpr) ExecError!Value {
         }
 
         return Value { .boolean = result };
+    } else if (std.mem.eql(u8, "if", fun)) {
+        if (args.len != 3) {
+            return ExecError.InvalidArgumentLength;
+        }
+
+        const val = try exec(&args[0]);
+        const b = val.get_bool() catch return ExecError.TypeMismatch;
+
+        return if (b)
+            exec(&args[1])
+        else
+            exec(&args[2]);
     }
 
     return ExecError.UnknownFunction;

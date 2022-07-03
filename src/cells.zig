@@ -83,9 +83,11 @@ pub const Table = struct {
 
         var in = str;
 
+        var evaluator = exec.EvalState.init(allo);
+
         while (true) {
             const result = try parse.parse_expr(in, allo);
-            const val = try exec.evaluate(&result.result, allo);
+            const val = try evaluator.evaluate(&result.result);
 
             try row.append(val);
             in = result.remaining;

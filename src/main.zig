@@ -1,17 +1,12 @@
 const std = @import("std");
 const parse = @import("./parse.zig");
 const cells = @import("./cells.zig");
-var allocator = std.heap.page_allocator; 
+var allocator = std.heap.page_allocator;
 
 pub fn main() anyerror!void {
     var args = std.process.args();
     _ = args.skip();
-    const file_name = if (args.next(allocator)) |file| 
-        try file
-     else {
-        return;
-    }; 
-    defer allocator.free(file_name);
+    const file_name = args.next() orelse return;
 
     var content = try std.fs.cwd().readFileAlloc(allocator, file_name, 4098);
     defer allocator.free(content);

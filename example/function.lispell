@@ -1,2 +1,9 @@
 (fn ((a number) (b number)) (+ a b)), (a1 2 3)
 ((fn ((a number) (b number)) (- a b)) 5 2)
+
+(fn ((n number))
+    (if (== n 1)
+        1
+        (* n (a3 (- n 1)))
+    )
+), (a3 5)

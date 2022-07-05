@@ -16,7 +16,7 @@ pub fn main() anyerror!void {
     const out = try table.format(allocator);
     defer allocator.free(out);
 
-    std.debug.print("{s}", .{out});
+    std.debug.print("\nOutput: \n------------\n{s}", .{out});
 }
 
 test "basic test" {

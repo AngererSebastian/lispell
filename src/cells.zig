@@ -58,6 +58,13 @@ pub const Value = union(Type) {
             else => return TakeError.TypeMismatch,
         }
     }
+
+    pub fn get_function(self: Value) TakeError!Function {
+        switch (self) {
+            .function => |f| return f,
+            else => return TakeError.TypeMismatch,
+        }
+    }
 };
 
 pub const FunctionArg = struct {
@@ -67,7 +74,7 @@ pub const FunctionArg = struct {
 
 pub const Function = struct {
     args: []FunctionArg,
-    body: []const AstExpr,
+    body: AstExpr,
 };
 
 pub const Table = struct {
@@ -86,6 +93,7 @@ pub const Table = struct {
 
         while (true) {
             const result = try parse.parse_expr(in, allo);
+            result.result.print(0);
             const val = try evaluator.evaluate(&result.result);
 
             const coords = try format_coords(buf[0..], row.items.len, table.items.len);

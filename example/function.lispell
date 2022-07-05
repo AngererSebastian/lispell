@@ -1,0 +1,2 @@
+(fn ((a number) (b number)) (+ a b)), (a1 2 3)
+((fn ((a number) (b number)) (- a b)) 5 2)

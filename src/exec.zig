@@ -19,6 +19,7 @@ pub const EvalError = error {
     TypeMismatch,
     OutOfMemory,
     InvalidArgumentLength,
+    InvalidFunction,
 };
 
 pub const EvalState = struct {
@@ -40,7 +41,14 @@ pub const EvalState = struct {
         self.state.deinit();
     }
 
-    pub fn evaluate(self: @This(), ast: *const AstExpr) EvalError!Value {
+    pub fn set(self: *@This(), name: []const u8, val: Value) !void {
+        // TODO: make this case insensitive
+        var key = try self.allo.alloc(u8, name.len);
+        _ = std.ascii.lowerString(key, name);
+        try self.state.put(key, val);
+    }
+
+    pub fn evaluate(self: *@This(), ast: *const AstExpr) EvalError!Value {
         switch (ast.*) {
             .number => |n| return Value {.number = n },
             .string => |s| return Value {.string = s },
@@ -51,22 +59,58 @@ pub const EvalState = struct {
 
                 const fun = cs[0];
 
-                return self.evalBuiltins(fun, cs[1..]);
+                return self.evalBuiltins(fun, cs[1..]) catch |err| {
+                    if (err != EvalError.UnknownFunction)
+                        return err;
+
+                    return self.evalCustomFunction(fun, cs[1..]);
+                };
             },
             .ident => |i| return self.state.get(i) orelse return EvalError.UnknownVariable,
             else => return EvalError.UnknownFunction,
         }
     }
 
-    pub fn set(self: *@This(), name: []const u8, val: Value) !void {
-        // TODO: make this case insensitive
-        var key = try self.allo.alloc(u8, name.len);
-        _ = std.ascii.lowerString(key, name);
-        try self.state.put(key, val);
+    fn evalCustomFunction(self: *@This(), function: AstExpr, args: []AstExpr) EvalError!Value {
+        const fun_value = try self.evaluate(&function);
+        const fun = fun_value.get_function() catch |err| {
+            if (err == EvalError.UnknownVariable)
+                return EvalError.UnknownFunction
+            else
+                return err;
+        };
+
+        if (fun.args.len != args.len)
+            return EvalError.InvalidArgumentLength;
+
+        var state_backup = try self.allo.alloc(?Value, args.len);
+        defer self.allo.free(state_backup);
+
+        // prepare arguments
+        for (args) |*arg, i| {
+            const arg_name = fun.args[i].name;
+            state_backup[i] = self.state.get(arg_name);
+
+            const val = try self.evaluate(arg);
+
+            try self.state.put(arg_name, val);
+        }
+
+        const result = self.evaluate(&fun.body);
+
+        // reset the state
+        for (state_backup) |bak, i| {
+            if (bak) |val| {
+                try self.state.put(fun.args[i].name, val);
+            } else {
+                _ = self.state.remove(fun.args[i].name);
+            }
+        }
+        return result;
     }
 
     // runs builtin commands/functions (+ - * == if)
-    fn evalBuiltins(self: @This(), function: AstExpr, args: []AstExpr) EvalError!Value {
+    fn evalBuiltins(self: *@This(), function: AstExpr, args: []AstExpr) EvalError!Value {
         const fun = function.get_ident() catch return EvalError.UnknownFunction;
 
             // + operator
@@ -153,12 +197,12 @@ pub const EvalState = struct {
         return EvalError.UnknownFunction;
     }
 
-    fn process_function(self: @This(), atoms: []AstExpr) EvalError!Value {
-        if (atoms.len >= 2)
+    fn process_function(self: *@This(), atoms: []AstExpr) EvalError!Value {
+        if (atoms.len != 2)
             return EvalError.InvalidArgumentLength;
 
         const args = try atoms[0].get_call();
-        const expr = atoms[1..];
+        const expr = atoms[1];
 
         var vargs = ArrayList(cells.FunctionArg).init(self.allo);
 

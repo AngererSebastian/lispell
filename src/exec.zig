@@ -53,7 +53,7 @@ pub const EvalState = struct {
 
                 return self.evalBuiltins(fun, cs[1..]);
             },
-            .ident => |_| return Value {.number = 0}, //self.state.get(i) orelse return EvalError.UnknownVariable,
+            .ident => |i| return self.state.get(i) orelse return EvalError.UnknownVariable,
             else => return EvalError.UnknownFunction,
         }
     }

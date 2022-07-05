@@ -33,6 +33,10 @@ pub const EvalState = struct {
         };
     }
     pub fn deinit(self: @This()) void {
+        for (self.state.keys()) |k| {
+            self.allo.free(k);
+        }
+
         self.state.deinit();
     }
 
@@ -49,14 +53,16 @@ pub const EvalState = struct {
 
                 return self.evalBuiltins(fun, cs[1..]);
             },
-            .ident => |i| return self.state.get(i) orelse return EvalError.UnknownVariable,
+            .ident => |_| return Value {.number = 0}, //self.state.get(i) orelse return EvalError.UnknownVariable,
             else => return EvalError.UnknownFunction,
         }
     }
 
-    pub fn set(self: @This(), name: []const u8, val: Value) void {
+    pub fn set(self: *@This(), name: []const u8, val: Value) !void {
         // TODO: make this case insensitive
-        self.state.put(name, val);
+        var key = try self.allo.alloc(u8, name.len);
+        _ = std.ascii.lowerString(key, name);
+        try self.state.put(key, val);
     }
 
     // runs builtin commands/functions (+ - * == if)

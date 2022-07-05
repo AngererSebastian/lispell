@@ -78,19 +78,25 @@ pub const Table = struct {
         const TableVec = ArrayList([]Value);
         const RowVec = ArrayList(Value);
         var table: TableVec = TableVec.init(allo);
-
         var row: RowVec = RowVec.init(allo);
+        var evaluator = exec.EvalState.init(allo);
 
         var in = str;
-
-        var evaluator = exec.EvalState.init(allo);
+        var buf: [8]u8 = undefined;
 
         while (true) {
             const result = try parse.parse_expr(in, allo);
             const val = try evaluator.evaluate(&result.result);
 
+            const coords = try format_coords(buf[0..], row.items.len, table.items.len);
+            var dbg: [256]u8 = undefined;
+            const n = try val.format(dbg[0..]);
+            std.debug.print("inserting {s} - {s}\n", .{coords, dbg[0..n]});
+            try evaluator.set(coords, val);
+
             try row.append(val);
             in = result.remaining;
+            std.debug.print("remaining to parse: \"{s}\"\n", .{in});
 
             if (in.len == 0 or in.len == 1)
                 break;
@@ -135,3 +141,11 @@ pub const Table = struct {
         return vec.toOwnedSlice();
     }
 };
+
+fn format_coords(into: []u8, x: usize, y: usize) ![]u8 {
+    // TODO: think about longer x coords like AA1
+    const t = @intCast(u8, x);
+
+    var out = std.fmt.bufPrint(into, "{c}{d}", .{t + 'a', y + 1});
+    return out;
+}

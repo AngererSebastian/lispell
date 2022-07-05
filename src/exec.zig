@@ -88,7 +88,7 @@ pub const EvalState = struct {
 
         // prepare arguments
         for (args) |*arg, i| {
-            const arg_name = fun.args[i].name;
+            const arg_name = fun.args[i];
             state_backup[i] = self.state.get(arg_name);
 
             const val = try self.evaluate(arg);
@@ -101,9 +101,9 @@ pub const EvalState = struct {
         // reset the state
         for (state_backup) |bak, i| {
             if (bak) |val| {
-                try self.state.put(fun.args[i].name, val);
+                try self.state.put(fun.args[i], val);
             } else {
-                _ = self.state.remove(fun.args[i].name);
+                _ = self.state.remove(fun.args[i]);
             }
         }
         return result;
@@ -204,19 +204,11 @@ pub const EvalState = struct {
         const args = try atoms[0].get_call();
         const expr = atoms[1];
 
-        var vargs = ArrayList(cells.FunctionArg).init(self.allo);
+        var vargs = ArrayList([]const u8).init(self.allo);
 
         for (args) |a| {
-            const arg = try a.get_call();
-            if (arg.len != 2)
-                return EvalError.InvalidArgumentLength;
-
-            try vargs.append(
-                cells.FunctionArg {
-                    .name = try arg[0].get_ident(),
-                    .type = try name_to_type(try arg[1].get_ident()),
-                }
-            );
+            const arg = try a.get_ident();
+            try vargs.append(arg);
         }
 
         const function = cells.Function {

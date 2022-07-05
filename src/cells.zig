@@ -67,13 +67,8 @@ pub const Value = union(Type) {
     }
 };
 
-pub const FunctionArg = struct {
-    name: []const u8,
-    type: Type
-};
-
 pub const Function = struct {
-    args: []FunctionArg,
+    args: [][]const u8,
     body: AstExpr,
 };
 
@@ -93,13 +88,13 @@ pub const Table = struct {
 
         while (true) {
             const result = try parse.parse_expr(in, allo);
-            result.result.print(0);
+            //result.result.print(0);
             const val = try evaluator.evaluate(&result.result);
 
             const coords = try format_coords(buf[0..], row.items.len, table.items.len);
-            var dbg: [256]u8 = undefined;
-            const n = try val.format(dbg[0..]);
-            std.debug.print("inserting {s} - {s}\n", .{coords, dbg[0..n]});
+            //var dbg: [256]u8 = undefined;
+            //const n = try val.format(dbg[0..]);
+            //std.debug.print("inserting {s} - {s}\n", .{coords, dbg[0..n]});
             try evaluator.set(coords, val);
 
             try row.append(val);

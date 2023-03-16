@@ -50,7 +50,10 @@ pub fn parse_expr(inp: []const u8, allocator: Allocator) ParseError!AstResult {
 
         return AstResult {
             .result = AstExpr { .string = str[1..end + 1]},
-            .remaining = str[end+1..]
+            .remaining = if (end + 2 < str.len)
+                            str[end + 2..]
+                        else
+                            ""
         };
     }
 
@@ -64,7 +67,7 @@ pub fn parse_expr(inp: []const u8, allocator: Allocator) ParseError!AstResult {
         };
     } else {
         std.debug.print("parsing {s} as identifier\n", .{str});
-        const identEnd = strings.findWhitespace(str) 
+        const identEnd = strings.findWhitespace(str)
                 catch strings.find(str, ')')
                 catch str.len;
 
@@ -94,9 +97,9 @@ fn parseCall(inp: []const u8, allocator: Allocator) ParseError!AstResult {
 fn findNonNumberChar(str: []const u8) strings.FindError!usize {
     var result: usize = 0;
 
-    while(result < str.len 
-        and (isNumber(str[result]) 
-        or str[result] == '.')) 
+    while(result < str.len
+        and (isNumber(str[result])
+        or str[result] == '.'))
         : (result += 1) { }
 
     if (result < str.len) {

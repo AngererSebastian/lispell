@@ -1,7 +1,7 @@
 const std = @import("std");
 const parse = @import("./parse.zig");
 const cells = @import("./cells.zig");
-var allocator = std.heap.page_allocator; 
+var allocator = std.heap.page_allocator;
 
 pub fn main() anyerror!void {
     var args = std.process.args();
@@ -17,7 +17,7 @@ pub fn main() anyerror!void {
     const out = try table.format(allocator);
     defer allocator.free(out);
 
-    std.debug.print("{s}", .{out});
+    std.debug.print("\nOutput: \n------------\n{s}", .{out});
 }
 
 test "basic test" {

@@ -36,7 +36,7 @@ pub const Value = union(Type) {
                 buf[s.len + 1] = '"';
                 return s.len + 2;
             },
-            .boolean => |b| return (try std.fmt.bufPrint(buf, "{b}", .{b})).len,
+            .boolean => |b| return (try std.fmt.bufPrint(buf, "{}", .{b})).len,
             .function => {
                 const fun = "function";
                 std.mem.copy(u8, buf,fun);

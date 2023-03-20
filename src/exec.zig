@@ -12,6 +12,8 @@ const cells = @import("./cells.zig");
 const Value = cells.Value;
 const Type = cells.Type;
 
+const builtins = @import("./builtins.zig");
+
 pub const EvalError = error {
     UnknownFunction,
     UnknownType,
@@ -59,7 +61,7 @@ pub const EvalState = struct {
 
                 const fun = cs[0];
 
-                return self.evalBuiltins(fun, cs[1..]) catch |err| {
+                return builtins.evalBuiltins(self, fun, cs[1..]) catch |err| {
                     if (err != EvalError.UnknownFunction)
                         return err;
 
@@ -119,114 +121,6 @@ pub const EvalState = struct {
     }
 
     // runs builtin commands/functions (+ - * == if)
-    fn evalBuiltins(self: *@This(), function: AstExpr, args: []AstExpr) EvalError!Value {
-        const fun = function.get_ident() catch return EvalError.UnknownFunction;
-
-            // + operator
-        if (equal(u8, "+", fun)) {
-            var sum: f64 = 0;
-
-            for (args) |*a| {
-                const val = try self.evaluate(a);
-                sum += try val.get_number();
-            }
-            return Value { .number = sum };
-            // - operator
-        } else if (equal(u8, "-", fun)) {
-            if (args.len == 0) {
-                return EvalError.InvalidArgumentLength;
-            }
-
-            const r = try self.evaluate(&args[0]);
-            var first: f64 = try r.get_number();
-
-            for (args[1..]) |*a| {
-                const val = try self.evaluate(a);
-                first -= try val.get_number();
-            }
-
-            return Value { .number = first };
-            // * operator
-        } else if (equal(u8, "*", fun)) {
-            var prod: f64 = 1;
-
-            for (args) |*a| {
-                const val = try self.evaluate(a);
-                prod *= try val.get_number();
-            }
-            return Value { .number = prod };
-            // == operator
-        } else if (equal(u8, "/", fun)) {
-            if (args.len == 0) {
-                return EvalError.InvalidArgumentLength;
-            }
-
-            const r = try self.evaluate(&args[0]);
-            var first: f64 = try r.get_number();
-
-            for (args[1..]) |*a| {
-                const val = try self.evaluate(a);
-                first /= try val.get_number();
-            }
-
-            return Value { .number = first };
-            // equals operator
-        } else if (equal(u8, "==", fun)) {
-            if (args.len == 0) {
-                return EvalError.InvalidArgumentLength;
-            }
-
-            const r = try self.evaluate(&args[0]);
-            var first: f64 = try r.get_number();
-            var result: bool = true;
-
-            for (args[1..]) |*a| {
-                const val = try self.evaluate(a);
-                result = result and first == try val.get_number();
-            }
-
-            return Value { .boolean = result };
-            // if expr e.g (if cond expr else-expr)
-        } else if (equal(u8, "if", fun)) {
-            if (args.len != 3) {
-                return EvalError.InvalidArgumentLength;
-            }
-
-            const val = try self.evaluate(&args[0]);
-            const b = try val.get_bool();
-
-            return if (b)
-                self.evaluate(&args[1])
-            else
-                self.evaluate(&args[2]);
-        } else if (equal(u8, "fn", fun)) {
-            return self.process_function(args);
-        }
-
-        return EvalError.UnknownFunction;
-    }
-
-    fn process_function(self: *@This(), atoms: []AstExpr) EvalError!Value {
-        if (atoms.len != 2)
-            return EvalError.InvalidArgumentLength;
-
-        const args = try atoms[0].get_call();
-        const expr = atoms[1];
-
-        var vargs = ArrayList([]const u8).init(self.allo);
-
-        for (args) |a| {
-            const arg = try a.get_ident();
-            try vargs.append(arg);
-        }
-
-        const function = cells.Function {
-            .args = vargs.toOwnedSlice(),
-            .body = expr
-        };
-
-        return Value {.function = function};
-    }
 };
 
 fn name_to_type(name: []const u8) EvalError!Type {

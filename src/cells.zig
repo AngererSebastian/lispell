@@ -7,12 +7,14 @@ const ArrayList = std.ArrayList;
 const TakeError = ast.TakeError;
 const AstExpr = ast.AstExpr;
 const Allocator = std.mem.Allocator;
+const BufPrintError = std.fmt.BufPrintError;
 
 pub const Type = enum {
     number,
     string,
     boolean,
     function,
+    list,
 };
 
 pub const Value = union(Type) {
@@ -20,6 +22,7 @@ pub const Value = union(Type) {
     string: []const u8,
     boolean: bool,
     function: Function,
+    list: []Value,
 
     pub fn print(self: Value) void {
         var buf: [256]u8 = undefined;
@@ -42,6 +45,9 @@ pub const Value = union(Type) {
                 std.mem.copy(u8, buf,fun);
                 return fun.len;
             },
+            .list => |l| {
+                return try Value.format_list(l, buf);
+            }
         }
     }
 
@@ -64,6 +70,29 @@ pub const Value = union(Type) {
             .function => |f| return f,
             else => return TakeError.TypeMismatch,
         }
+    }
+
+    fn format_list(list: []Value, buf: []u8) BufPrintError!usize {
+        if (buf.len == 0) {
+            return BufPrintError.NoSpaceLeft;
+        }
+
+        buf[0] = '(';
+        var offset: usize = 1;
+        
+        for (list) |x| {
+            offset += try x.format(buf[offset..]);
+
+            if (buf.len - offset < 0) {
+                return BufPrintError.NoSpaceLeft;
+            }
+
+            buf[offset] = ',';
+            offset += 1;
+        }
+
+        buf[offset-1] = ')';
+        return offset;
     }
 };
 
@@ -99,7 +128,7 @@ pub const Table = struct {
 
             try row.append(val);
             in = result.remaining;
-            std.debug.print("remaining to parse: \"{s}\"\n", .{in});
+            //std.debug.print("remaining to parse: \"{s}\"\n", .{in});
 
             if (in.len == 0 or in.len == 1)
                 break;

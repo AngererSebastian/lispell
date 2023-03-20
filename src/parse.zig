@@ -12,6 +12,7 @@ pub const ParseError = error {
     InvalidNumber,
     OutOfMemory,
     UnclosedString,
+    ExpectedList,
 };
 
 fn ParseResult(comptime resultType: type) type {
@@ -42,6 +43,21 @@ pub fn parse_expr(inp: []const u8, allocator: Allocator) ParseError!AstResult {
                             str[end+1..]
                          else ""
         };
+    }
+
+    // parse a quoted list
+    if (str[0] == '\'' and str.len > 1 and str[1] == '(') {
+        const res = try parse_expr(str[1..], allocator);
+
+        switch (res.result) {
+            .call => |c| {
+                return AstResult {
+                    .result = AstExpr { .quoted = c },
+                    .remaining = res.remaining
+                };
+            },
+            else => return ParseError.ExpectedList,
+        }
     }
 
     if(str[0] == '"') {

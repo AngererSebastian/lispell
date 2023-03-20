@@ -66,8 +66,17 @@ pub const EvalState = struct {
                     return self.evalCustomFunction(fun, cs[1..]);
                 };
             },
+            .quoted => |list| {
+                const ret = try self.allo.alloc(Value, list.len);
+
+                for (list) |x, i| {
+                    ret[i] = try self.evaluate(&x);
+                }
+
+                return Value {.list = ret};
+            },
             .ident => |i| return self.state.get(i) orelse return EvalError.UnknownVariable,
-            else => return EvalError.UnknownFunction,
+            //else => return EvalError.UnknownFunction,
         }
     }
 

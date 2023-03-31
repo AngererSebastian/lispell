@@ -97,4 +97,11 @@ pub const AstExpr = union(enum) {
             else => return TakeError.TypeMismatch,
         }
     }
+
+    pub fn get_quoted(self: @This()) TakeError![]AstExpr {
+        switch (self) {
+            .quoted => |c| return c,
+            else => return TakeError.TypeMismatch,
+        }
+    }
 };

@@ -54,12 +54,7 @@ pub fn evalBuiltins(self: *EvalState, function: AstExpr, args: []AstExpr) EvalEr
 
 pub fn arith_functions(self: *EvalState, fun: []const u8, args: []AstExpr) EvalError!Value {
     if (equal(u8, "+", fun)) {
-        var sum: f64 = 0;
-
-        for (args) |*a| {
-            const val = try self.evaluate(a);
-            sum += try val.get_number();
-        }
+        const sum = try fold_ast(f64, self, 0, add_expr, args);
         return Value { .number = sum };
         // - operator
     } else if (equal(u8, "-", fun)) {
@@ -70,22 +65,13 @@ pub fn arith_functions(self: *EvalState, fun: []const u8, args: []AstExpr) EvalE
         const r = try self.evaluate(&args[0]);
         var first: f64 = try r.get_number();
 
-        for (args[1..]) |*a| {
-            const val = try self.evaluate(a);
-            first -= try val.get_number();
-        }
-
-        return Value { .number = first };
+        const diff = try fold_ast(f64, self, first, sub_expr, args[1..]);
+        return Value { .number = diff };
         // * operator
     } else if (equal(u8, "*", fun)) {
-        var prod: f64 = 1;
-
-        for (args) |*a| {
-            const val = try self.evaluate(a);
-            prod *= try val.get_number();
-        }
+        const prod = try fold_ast(f64, self, 1, mult_expr, args);
         return Value { .number = prod };
-        // == operator
+        // / operator
     } else if (equal(u8, "/", fun)) {
         if (args.len == 0) {
             return EvalError.InvalidArgumentLength;
@@ -94,12 +80,8 @@ pub fn arith_functions(self: *EvalState, fun: []const u8, args: []AstExpr) EvalE
         const r = try self.evaluate(&args[0]);
         var first: f64 = try r.get_number();
 
-        for (args[1..]) |*a| {
-            const val = try self.evaluate(a);
-            first /= try val.get_number();
-        }
-
-        return Value { .number = first };
+        const quotient = try fold_ast(f64, self, first, div_expr, args[1..]);
+        return Value { .number = quotient };
     }
 
     return EvalError.UnknownFunction;
@@ -125,4 +107,38 @@ fn process_function(atoms: []AstExpr, allo: Allocator) EvalError!Value {
     };
 
     return Value {.function = function};
+}
+
+fn Folder(comptime State: type) type {
+    return *const fn(state: State, expr: Value) EvalError!State;
+}
+
+fn fold_ast(comptime State: type, evaluator: *EvalState, state: State, folder: Folder(State), exprs: []AstExpr) EvalError!State {
+    var s = state;
+    for (exprs) |*e| {
+        if (e.get_quoted()) |l| {
+            s = try fold_ast(State, evaluator, s, folder, l);
+        } else |_| {
+            const val = try evaluator.evaluate(e);
+            s = try folder(s, val);
+        }
+    }
+
+    return s;
+}
+
+fn add_expr(sum: f64, expr: Value) EvalError!f64 {
+    return sum + try expr.get_number();
+}
+
+fn sub_expr(diff: f64, expr: Value) EvalError!f64 {
+    return diff - try expr.get_number();
+}
+
+fn mult_expr(left: f64, expr: Value) EvalError!f64 {
+    return left * try expr.get_number();
+}
+
+fn div_expr(left: f64, expr: Value) EvalError!f64 {
+    return left / try expr.get_number();
 }

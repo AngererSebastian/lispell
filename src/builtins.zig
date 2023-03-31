@@ -17,7 +17,42 @@ const AstExpr = astT.AstExpr;
 pub fn evalBuiltins(self: *EvalState, function: AstExpr, args: []AstExpr) EvalError!Value {
     const fun = function.get_ident() catch return EvalError.UnknownFunction;
 
-        // + operator
+    if (equal(u8, "==", fun)) {
+        if (args.len == 0) {
+            return EvalError.InvalidArgumentLength;
+        }
+
+        const r = try self.evaluate(&args[0]);
+        var first: f64 = try r.get_number();
+        var result: bool = true;
+
+        for (args[1..]) |*a| {
+            const val = try self.evaluate(a);
+            result = result and first == try val.get_number();
+        }
+
+        return Value { .boolean = result };
+        // if expr e.g (if cond expr else-expr)
+    } else if (equal(u8, "if", fun)) {
+        if (args.len != 3) {
+            return EvalError.InvalidArgumentLength;
+        }
+
+        const val = try self.evaluate(&args[0]);
+        const b = try val.get_bool();
+
+        return if (b)
+            self.evaluate(&args[1])
+        else
+            self.evaluate(&args[2]);
+    } else if (equal(u8, "fn", fun)) {
+        return process_function(args, self.allo);
+    }
+
+    return arith_functions(self, fun, args);
+}
+
+pub fn arith_functions(self: *EvalState, fun: []const u8, args: []AstExpr) EvalError!Value {
     if (equal(u8, "+", fun)) {
         var sum: f64 = 0;
 
@@ -65,37 +100,6 @@ pub fn evalBuiltins(self: *EvalState, function: AstExpr, args: []AstExpr) EvalEr
         }
 
         return Value { .number = first };
-        // equals operator
-    } else if (equal(u8, "==", fun)) {
-        if (args.len == 0) {
-            return EvalError.InvalidArgumentLength;
-        }
-
-        const r = try self.evaluate(&args[0]);
-        var first: f64 = try r.get_number();
-        var result: bool = true;
-
-        for (args[1..]) |*a| {
-            const val = try self.evaluate(a);
-            result = result and first == try val.get_number();
-        }
-
-        return Value { .boolean = result };
-        // if expr e.g (if cond expr else-expr)
-    } else if (equal(u8, "if", fun)) {
-        if (args.len != 3) {
-            return EvalError.InvalidArgumentLength;
-        }
-
-        const val = try self.evaluate(&args[0]);
-        const b = try val.get_bool();
-
-        return if (b)
-            self.evaluate(&args[1])
-        else
-            self.evaluate(&args[2]);
-    } else if (equal(u8, "fn", fun)) {
-        return process_function(args, self.allo);
     }
 
     return EvalError.UnknownFunction;
